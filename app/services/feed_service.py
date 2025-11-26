@@ -11,6 +11,7 @@ class MarketFeed:
     def __init__(self, access_token: str, instrument_keys: list):
         self.access_token = access_token
         self.instrument_keys = instrument_keys
+        self.websocket = None
 
     async def get_market_data_feed_authorize_v3(self):
         """Get authorization for market data feed."""
@@ -29,6 +30,37 @@ class MarketFeed:
         feed_response.ParseFromString(buffer)
         return feed_response
 
+    async def subscribe_instruments(self, instrument_keys: list):
+        """
+        Dynamically subscribes to a list of instruments.
+        """
+        if not self.websocket:
+            print("DEBUG: WebSocket not connected. Cannot subscribe.")
+            return
+
+        print(f"DEBUG: Subscribing to: {instrument_keys}")
+        
+        # Update internal list
+        self.instrument_keys.extend(instrument_keys)
+        # Remove duplicates
+        self.instrument_keys = list(set(self.instrument_keys))
+
+        data = {
+            "guid": "someguid",
+            "method": "sub",
+            "data": {
+                "mode": "full",
+                "instrumentKeys": instrument_keys
+            }
+        }
+        
+        try:
+            binary_data = json.dumps(data).encode('utf-8')
+            await self.websocket.send(binary_data)
+            print("DEBUG: Subscription request sent.")
+        except Exception as e:
+            print(f"Error sending subscription: {e}")
+
     async def start_stream(self):
         """Fetch market data using WebSocket and publish to Redis."""
         print("DEBUG: Starting WebSocket Stream (Direct)")
@@ -44,6 +76,7 @@ class MarketFeed:
             ws_url = response["data"]["authorized_redirect_uri"]
             
             async with websockets.connect(ws_url, ssl=ssl_context) as websocket:
+                self.websocket = websocket
                 print('DEBUG: Connection established')
 
                 await asyncio.sleep(1)  # Wait for 1 second
@@ -53,7 +86,7 @@ class MarketFeed:
                     "guid": "someguid",
                     "method": "sub",
                     "data": {
-                        "mode": "full_d30",
+                        "mode": "full",
                         "instrumentKeys": self.instrument_keys
                     }
                 }

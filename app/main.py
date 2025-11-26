@@ -9,7 +9,9 @@ import httpx
 app = FastAPI(title="SniperBot", version="1.0.0")
 
 # Global variable to store access token (Temporary)
-ACCESS_TOKEN = None
+from app.core.redis_client import redis_client
+ACCESS_TOKEN = redis_client.get("access_token")
+MARKET_FEED = None
 
 @app.get("/")
 def read_root():
@@ -17,7 +19,8 @@ def read_root():
     return {
         "message": "Welcome to SniperBot",
         "server_time_ist": convert_unix_to_ist(current_time),
-        "authenticated": ACCESS_TOKEN is not None
+        "authenticated": ACCESS_TOKEN is not None,
+        "feed_active": MARKET_FEED is not None
     }
 
 @app.get("/login")
@@ -84,13 +87,14 @@ def start_feed(background_tasks: BackgroundTasks, symbols: str):
     Starts the WebSocket feed for the given symbols.
     Symbols should be comma-separated, e.g., "NSE_INDEX|Nifty 50,NSE_INDEX|Nifty Bank"
     """
-    global ACCESS_TOKEN
+    global ACCESS_TOKEN, MARKET_FEED
     
     if not ACCESS_TOKEN:
         return {"error": "Authentication required. Please login first."}
     
     instrument_keys = symbols.split(",")
     feed = MarketFeed(ACCESS_TOKEN, instrument_keys)
+    MARKET_FEED = feed
     
     # Run the streamer in the background
     background_tasks.add_task(feed.start_stream)
@@ -99,6 +103,25 @@ def start_feed(background_tasks: BackgroundTasks, symbols: str):
         "message": "Feed started in background",
         "instruments": instrument_keys
     }
+
+@app.post("/run-morning-setup")
+async def run_morning_setup():
+    """
+    Triggers the morning setup logic:
+    1. Get Spot Price
+    2. Calculate ATM
+    3. Generate Grid
+    4. Subscribe to Options
+    """
+    global MARKET_FEED
+    
+    if not MARKET_FEED:
+        return {"error": "Market Feed is not active. Please start the feed first."}
+        
+    from app.services.morning_setup import MorningSetup
+    setup = MorningSetup(MARKET_FEED)
+    result = await setup.setup_morning_strikes()
+    return result
 
 @app.get("/refresh-contracts")
 async def refresh_contracts(instrument: str = "NSE_INDEX|Nifty 50"):

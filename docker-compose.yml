@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: sniper_redis
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  db:
+    image: timescale/timescaledb:latest-pg14
+    container_name: sniper_db
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=sniper_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  db_data:

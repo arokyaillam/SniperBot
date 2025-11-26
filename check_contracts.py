@@ -28,7 +28,15 @@ def check_contracts():
             nifty_ce = [k for k in keys if "NIFTY" in k and ":CE" in k]
             if nifty_ce:
                 print(f"Found {len(nifty_ce)} NIFTY CE contracts.")
-                print(f"Example: {nifty_ce[0]} -> {r.get(nifty_ce[0])}")
+                example_key = nifty_ce[0]
+                print(f"Example Key: {example_key}")
+                print(f"Value: {r.get(example_key)}")
+                
+                # Extract expiry from key
+                # Key format: CONTRACT:{SYMBOL}:{EXPIRY}:{STRIKE}:{OPT_TYPE}
+                parts = example_key.split(":")
+                if len(parts) >= 3:
+                    print(f"Expiry Date in Key: {parts[2]}")
             else:
                 print("No NIFTY CE contracts found.")
                 

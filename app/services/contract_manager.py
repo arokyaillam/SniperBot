@@ -73,7 +73,7 @@ async def fetch_and_store_contracts(instrument_key: str = "NSE_INDEX|Nifty 50"):
     for contract in contracts:
         if contract.get("expiry") == nearest_expiry:
             strike = contract.get("strike_price")
-            opt_type = contract.get("option_type") # CE or PE
+            opt_type = contract.get("instrument_type") # CE or PE
             instr_key = contract.get("instrument_key")
             lot_size = contract.get("lot_size")
             
